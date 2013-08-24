@@ -10,7 +10,7 @@
 package driver
 
 import (
-	"errors"
+// "errors"
 )
 
 // Value is a value that drivers must be able to handle.
@@ -36,49 +36,68 @@ type Driver interface {
 //Conn is assumed to be stateful
 type Conn interface {
 
-	// Prepare returns a prepared statement,bound to this connection
-	Prepare(query string) (Stmt, error)
+	//CreateNode and return a node.
+	CreateNode() (Node, error)
 
-	// Close invalidates and potentially stops any current
-	// prepared statements and transactions,marking this
-	// connection as no longer in use.
-	//
+	// Node returns a node.
+	Node() (Node, error)
 
-	// Becuause the graph package maintains a free pool of
-	// connections and only calls Close when there's a surplus of
-	// idle connections,it shouldn't be necessary for drivers to
-	// do their own connection caching.
-	Close() error
+	//CreateRelationship returns a relationship.
+	CreateRelationship() (Relationship, error)
 
-	// Begin starts and returns a new transaction.
-	Begin() (Tx, error)
+	//Get relationship types.
+	RelationshipTypes() ([]string, error)
 }
 
-type Stmt interface {
-	Close() error
+type Node interface {
 
-	NumInput() int
+	//SetProperty on node.
+	SetProperty(propertyKey string, propertyVal interface{}) error
 
-	Exec(args []Value) (Result, error)
+	//UpdateProperties.
+	UpdateProperties(properties map[string]interface{}) error
 
-	Query(args []Value) (Rows, error)
+	//Get properties for node.
+	Properties() (map[string]interface{}, error)
+
+	// Get all relationships.
+	Relationships() ([]*Relationship, error)
+
+	//Get Incoming relationships.
+	IncomingRelationships() ([]*Relationship, error)
+
+	//Get outgoing relationships.
+	OutgoingRelationships() ([]*Relationship, error)
+
+	//Get typed relationships.
+	TypedRelationships(...string) ([]*Relationship, error)
+
+	//Delete an node.
+	Delete() error
 }
 
-// Result is the result of a query execution.
-type Result interface {
+type Relationship interface {
+	//Update relationship properties.
+	UpdataProperties(properties map[string]interface{}) error
 
-	// LastAddId returns the database's auto-generated ID
-	// after,for example,an AddNode into a map with a
-	// key.
-	LastAddNodeId() (int64, error)
+	//RemoveProperties from a relationship.
+	RemoveProperties() error
 
-	// NodesAffected returns the number of nodes affected by the
-	// query.
-	NodesAffected() (int64, error)
-}
+	// Remove property from a relationship.
+	RemoveProperty(propertyKey string) error
 
-// Tx is a transaction.
-type Tx interface {
-	Commit() error
-	Rollback() error
+	//Properties get all relationship's properties.
+	Properties() (map[string]interface{}, error)
+
+	//Property get single property on a relationship.
+	Property(propertyKey string) (string, error)
+
+	//SetProperties on a relationship.
+	SetProperties(map[string]interface{}) error
+
+	//SetProperty on a relationship.
+	SetProperty(propertyKey string, propertyVal interface{}) error
+
+	//Delete a relationship.
+	Delete() error
 }
