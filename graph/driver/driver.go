@@ -47,6 +47,16 @@ type Conn interface {
 
 	//Get relationship types.
 	RelationshipTypes() ([]string, error)
+
+	// Close invalidates and potentially stops any current
+	// prepared statements and transactions,marking this
+	// connection as no longer in use.
+	//
+	// Because the graph package maintains a free pool of
+	// connections and only calls Close when there's a surplus of
+	// idle connections,it shouldn't be necessary for drivers to
+	// do their own connection caching.
+	Close() error
 }
 
 type Node interface {
@@ -100,4 +110,32 @@ type Relationship interface {
 
 	//Delete a relationship.
 	Delete() error
+}
+
+// Stmt is a prepared statement.It is bound to a Conn and not
+// used by multiple goroutines concurrently.
+type Stmt interface {
+	// Close closes the statement.
+	//
+	// As of Go 1.1,a Stmt will not be closed if it's in use
+	// by any queries.
+	Close() error
+}
+
+// Execer is an optional interface that may be implemented by a Conn.
+//
+// If a Conn does not implement Execer,the graph package's DB.Exec will
+// first prepare a query,execute the statement,and then close the statement.
+//
+//Exec may return ErrSkip.
+type Execer interface {
+}
+
+// Queryer is an Optional interface that may be implemented by a Conn.
+//
+// If a Conn does not implement Queryer,the graph package's DB.Query will
+// first prepare a query,execute the statement,and then Close the statement.
+//
+// Query may return ErrSkip.
+type Queryer interface {
 }
