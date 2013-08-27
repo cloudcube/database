@@ -3,9 +3,9 @@
 // license that can be found in the LICENSE file.
 
 // Package driver defines interfaces to be implemented by database
-// drivers as used by package sql.
+// drivers as used by package graph.
 //
-// Most code should use package sql.
+// Most code should use package graph.
 
 package driver
 

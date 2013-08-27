@@ -1,7 +1,15 @@
+// Copyright 2013 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Package graph provides a generic interface around GRAPH (or GRAPH-like)
+// databases.
+//
+// The graph package must be used in conjunction with a database driver.
+// See http://github.com/graphdrivers for a list of drivers.
 package graph
 
 import (
-	//"errors"
 	"errors"
 	"fmt"
 	"github.com/cloudcube/database/graph/driver"
