@@ -10,7 +10,7 @@
 package driver
 
 import (
-// "errors"
+	"errors"
 )
 
 // Value is a value that drivers must be able to handle.
@@ -27,8 +27,36 @@ type Value interface{}
 // Driver is the interface that must be implement by a database
 // driver.
 type Driver interface {
+
+	// Open returns a new connection to the database.
+	// The name is a string in a driver-specific format.
+	//
+	// Open may return a cached connection(one previously
+	// closed),but doing so is unnecessary;the graph package
+	// maintains a pool of idle connections for efficient re-use.
+	//
+	// The returned connection is only used by one goroutine at a
+	// time.
 	Open(name string) (Conn, error)
 }
+
+// ErrSkip may be returned by some optional interface's methods to
+// indicate at runtime that the fast path is unavailable and the graph
+// package should continue as if the optional interface was not
+// implemented,ErrSkip is only supported where explicitly
+// documented.
+var ErrSkip = errors.New("driver: skip fast-path;continue as if unimplemented")
+
+// ErrBadConn should be returned by a driver to signal to the graph
+// package that a driver.Conn is in a bat state (such as the server
+// having earlier closed the connection) and the graph package should
+// retry on a new connection.
+//
+// To prevent duplicate operations,ErrBadConn should NOT be returned
+// if there's a possiblity that the database server might have
+// performed the operation.Even if the server sends back an error,
+// you shouldn't return ErrBadConn.
+var ErrBadConn = errors.New("driver: bad connection")
 
 // Conn is a connection to a database,It is not used concurrently
 // by multiple goroutines.
