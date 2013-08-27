@@ -204,7 +204,7 @@ func (db *DB) putConn(dc *driverConn, err error) {
 	if debugGetPut {
 		db.lastPut[dc] = stack()
 	}
-	dc.inUse = finalCloser
+	dc.inUse = false
 	for _, fn := range dc.onPut {
 		fn()
 	}
