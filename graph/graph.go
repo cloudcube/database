@@ -231,7 +231,8 @@ func (db *DB) putConn(dc *driverConn, err error) {
 }
 
 func (db *DB) removeDepLocked(x finalCloser, dep interface{}) func() error {
-	done := finalCloser
+	done := false
+
 	xdep := db.dep[x]
 
 	if xdep != nil {
