@@ -63,7 +63,7 @@ func Register(name string, driver driver.Driver) {
 // Ping.
 
 func Open(driverName, dataSourceName string) (*DB, error) {
-	driveri, ok := driver[driverName]
+	driveri, ok := drivers[driverName]
 	if !ok {
 		return nil, fmt.Errorf("graph:unknown driver %q (forgotten import?", driverName)
 	}
@@ -86,7 +86,7 @@ func (db *DB) Ping() error {
 	return nil
 }
 
-func (db *DB) conn(*driverConn, error) {
+func (db *DB) conn() (*driverConn, error) {
 	db.mu.Lock()
 	if db.closed {
 		db.mu.Unlock()
