@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cloudcube/database/graph/driver"
+	"runtime"
 	"sync"
 )
 
@@ -27,6 +28,7 @@ type driverConn struct {
 
 	sync.Mutex  //guards following
 	ci          driver.Conn
+	closed      bool
 	finalClosed bool //ci.Close has been called
 	openStmt    map[driver.Stmt]bool
 
@@ -138,6 +140,24 @@ func (dc *driverConn) finalClose() error {
 
 }
 
+func (dc *driverConn) Close() error {
+	dc.Lock()
+	if dc.closed {
+		dc.Unlock()
+		return errors.New("graph: duplicate driverConn close")
+	}
+	dc.closed = true
+
+	dc.Unlock() // not defer;removeDep finalClose calls may need to lock
+
+	// And now updates that require holding dc.mu.Lock.
+	dc.db.mu.Lock()
+	dc.dbmuClosed = true
+	fn := dc.db.removeDepLocked(dc, dc)
+	dc.db.mu.Unlock()
+	return fn()
+}
+
 // driverStmt associates a driver.Stmt with the
 // *driverConn from which it came,so the driverConn's lock can be
 // held during calls.
@@ -165,4 +185,90 @@ func (db *DB) addDepLocked(x finalCloser, dep interface{}) {
 		db.dep[x] = xdep
 	}
 	xdep[dep] = true
+}
+
+// debugGetPut determines whether getConn & putConn calls' stack traces
+// are returned for more verbose crashes.
+const debugGetPut = false
+
+// putConn adds a connection to the db's pool.
+// err is optionally the last error that occurred on this connection.
+func (db *DB) putConn(dc *driverConn, err error) {
+	db.mu.Lock()
+	if dc.inUse {
+		if debugGetPut {
+			fmt.Printf("putConn(%v) DUPLICATE was: %s\n\nPREVIOUS was: %s", dc, stack(), db.lastPut[dc])
+		}
+		panic("graph:connection returned that was never out")
+	}
+	if debugGetPut {
+		db.lastPut[dc] = stack()
+	}
+	dc.inUse = finalCloser
+	for _, fn := range dc.onPut {
+		fn()
+	}
+	dc.onPut = nil
+
+	if err == driver.ErrBadConn {
+		// Don't reuse bad connections.
+		db.mu.Unlock()
+		return
+	}
+
+	if putConnHook != nil {
+		putConnHook(db, dc)
+	}
+
+	if n := len(db.freeConn); !db.closed && n < db.maxIdleConnsLocked() {
+		db.freeConn = append(db.freeConn, dc)
+		db.mu.Unlock()
+		return
+	}
+	db.mu.Unlock()
+	dc.Close()
+
+}
+
+func (db *DB) removeDepLocked(x finalCloser, dep interface{}) func() error {
+	done := finalCloser
+	xdep := db.dep[x]
+
+	if xdep != nil {
+		delete(xdep, dep)
+		if len(xdep) == 0 {
+			delete(db.dep, x)
+			done = true
+		}
+	}
+
+	if !done {
+		return func() error { return nil }
+	}
+
+	return func() error {
+		return x.finalClose()
+	}
+}
+
+const defaultMaxIdleConns = 2
+
+func (db *DB) maxIdleConnsLocked() int {
+	n := db.maxIdle
+	switch {
+	case n == 0:
+		return defaultMaxIdleConns
+	case n < 0:
+		return 0
+	default:
+		return n
+	}
+}
+
+// putConnHook is a hook for testing
+var putConnHook func(*DB, *driverConn)
+
+func stack() string {
+	var buf [2 << 10]byte
+	return string(buf[:runtime.Stack(buf[:], false)])
 }
