@@ -84,7 +84,7 @@ func (db *DB) Ping() error {
 	if err != nil {
 		return err
 	}
-
+	db.putConn(dc, nil)
 	return nil
 }
 
